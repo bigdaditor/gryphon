@@ -9,7 +9,7 @@ dotenv.config();
 
 // Register plugins
 fastify.register(fastifyJwt, { secret: process.env.JWT_SECRET });
-//fastify.register(fastifyRedis, { host: process.env.REDIS_HOST || '127.0.0.1' });
+fastify.register(fastifyRedis, { host: process.env.REDIS_HOST || '127.0.0.1' });
 
 // Register routes
 fastify.register(authRoutes, { prefix: '/auth' });
