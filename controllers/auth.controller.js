@@ -1,58 +1,57 @@
 const bcrypt = require('bcrypt');
 
-// In-memory user storage (can later replace with Redis or DB)
-const users = new Map();
-
-// In-memory refresh token storage for demonstration purposes.
-// In production, store in Redis or a database.
-const refreshTokenStore = new Map(); // In-memory refresh token storage
-
 // POST /signup
 async function signup(request, reply) {
   const { email, password } = request.body;
-  if (users.has(email)) {
+  const existingUser = await request.server.redis.get(`user:${email}`);
+  if (existingUser) {
     return reply.status(400).send({ message: 'User already exists' });
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  users.set(email, { email, password: hashedPassword });
+  await request.server.redis.set(`user:${email}`, JSON.stringify({ email, password: hashedPassword }));
+  const keys = await request.server.redis.keys('user:*');
+  const users = await Promise.all(keys.map(async (key) => {
+    const value = await request.server.redis.get(key);
+    return JSON.parse(value);
+  }));
+  console.log('Current users:', users);
   return reply.send({ message: 'User registered successfully' });
 }
 
 // POST /login
 async function login(request, reply) {
   const { email, password } = request.body;
-  const user = users.get(email);
-
-  if (!user) {
+  const userData = await request.server.redis.get(`user:${email}`);
+  if (!userData) {
     return reply.status(401).send({ message: 'Invalid email or password' });
   }
+  const user = JSON.parse(userData);
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
     return reply.status(401).send({ message: 'Invalid email or password' });
   }
 
-  const accessToken = await reply.jwtSign({ email }, { expiresIn: '15m' });
+  const accessToken = await reply.jwtSign({ email }, { expiresIn: '1h' });
   const refreshToken = await reply.jwtSign({ email }, { expiresIn: '7d' });
 
-  refreshTokenStore.set(email, refreshToken);
-
+  await request.server.redis.hset(`tokens:${email}`, 'access', accessToken, 'refresh', refreshToken);
+  await request.server.redis.expire(`tokens:${email}`, 7 * 24 * 60 * 60);
   return reply.send({ accessToken, refreshToken });
 }
 
 // POST /logout
 async function logout(request, reply) {
   const { email } = request.body;
-  refreshTokenStore.delete(email);
+  await request.server.redis.del(`tokens:${email}`);
   return reply.send({ message: 'Logged out successfully' });
 }
 
 // POST /refresh
 async function refresh(request, reply) {
   const { email, refreshToken } = request.body;
-
-  const storedToken = refreshTokenStore.get(email);
+  const storedToken = await request.server.redis.hget(`tokens:${email}`, 'refresh');
   if (!storedToken || storedToken !== refreshToken) {
     return reply.status(401).send({ message: 'Invalid refresh token' });
   }
