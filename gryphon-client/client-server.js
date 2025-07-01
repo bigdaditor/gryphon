@@ -31,6 +31,7 @@ fastify.get('/callback', async (request, reply) => {
     });
     reply.send(tokenRes.data);
   } catch (err) {
+    console.error(err);
     reply.status(500).send({ error: 'Failed to retrieve access token' });
   }
 });

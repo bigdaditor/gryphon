@@ -73,6 +73,7 @@ fastify.post('/refresh', async (request, reply) => {
       expires_in: 3600
     });
   } catch (err) {
+    console.error(err);
     reply.status(401).send({ error: 'Invalid or expired refresh token' });
   }
 });

@@ -16,12 +16,13 @@ fastify.addHook('onRequest', async (request, reply) => {
   try {
     await request.jwtVerify();
   } catch (err) {
+    console.error(err);
     return reply.status(401).send({ message: 'Invalid or expired token' });
   }
 });
 
 // 보호된 리소스 엔드포인트
-fastify.get('/protected-resource', async (request, reply) => {
+fastify.get('/protected-resource', async (request) => {
   const clientId = request.user.client_id;
   return { message: `Hello, ${clientId}. This is a protected resource.` };
 });

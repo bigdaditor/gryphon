@@ -16,6 +16,7 @@ fastify.addHook('onRequest', async (request, reply) => {
   try {
     await request.jwtVerify();
   } catch (err) {
+    console.error(err);
     return reply.status(401).send({ message: 'Invalid or expired token' });
   }
 });
@@ -28,7 +29,8 @@ fastify.get('/api/protected-resource', async (request, reply) => {
       headers: { Authorization: token }
     });
     reply.send(response.data);
-  } catch (error) {
+  } catch (err) {
+    console.error(err);
     reply.status(502).send({ message: 'Failed to reach resource server' });
   }
 });
